@@ -3,6 +3,7 @@ package pleos
 import (
 	"errors"
 	"net/http"
+	"sync"
 
 	"github.com/evcc-io/evcc/util"
 	"github.com/evcc-io/evcc/util/oauth"
@@ -19,16 +20,39 @@ type identity struct {
 	brand, clientID, clientSecret string
 }
 
-// NewIdentity creates a Pleos personal-token source for private users
+// identityKey includes the secret so that changed credentials get a new token
+type identityKey struct {
+	brand, clientID, clientSecret string
+}
+
+var (
+	mu         sync.Mutex
+	identities = make(map[identityKey]oauth2.TokenSource)
+)
+
+// NewIdentity returns the Pleos personal-token source for private users. It is shared
+// by all vehicles of an api key, since a new token appears to revoke the previous one.
 // https://document.pleos.ai/en/api-reference/vehicle-data-api/getting-started/for-private-users/authorization
 func NewIdentity(log *util.Logger, brand, clientID, clientSecret string) oauth2.TokenSource {
+	mu.Lock()
+	defer mu.Unlock()
+
+	key := identityKey{brand, clientID, clientSecret}
+	if ts, ok := identities[key]; ok {
+		return ts
+	}
+
 	v := &identity{
 		Helper:       request.NewHelper(log),
 		brand:        brand,
 		clientID:     clientID,
 		clientSecret: clientSecret,
 	}
-	return oauth2.ReuseTokenSource(nil, oauth.Redacted(log, v))
+
+	ts := oauth2.ReuseTokenSource(nil, oauth.Redacted(log, v))
+	identities[key] = ts
+
+	return ts
 }
 
 // Token implements oauth2.TokenSource
