@@ -9,7 +9,7 @@ import (
 
 // BaseURL is the Pleos Vehicle Data API base URL (Hyundai/Kia/Genesis, EU Data Act)
 // https://document.pleos.ai/en/api-reference/vehicle-data-api/intro
-const BaseURL = "https://api.pleos.ai/v1"
+var BaseURL = "https://api.pleos.ai/v1"
 
 // API is the Pleos Vehicle Data API client
 type API struct {
